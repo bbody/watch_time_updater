@@ -1,0 +1,8 @@
+# Build output
+build/
+
+# Project-local Arduino libraries (installed by `make deps`)
+.arduino/
+
+# Cached downloads for data builds (`make distclean` removes them)
+.cache/
