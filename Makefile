@@ -11,6 +11,8 @@
 #   make test          # host unit tests (no board needed)
 #   make tzdb          # force a fresh download of the time zone rules
 #   make zonedb        # build ZoneDetect's timezone16.bin (GPS position → zone, country)
+#   make sim           # build the Wokwi simulator's display chip + flash image (see simulator/)
+#   make wasi-sdk      # download the WebAssembly toolchain into .wasi/ (make sim does this)
 #   make distclean     # clean + delete cached downloads (~90 MB)
 #
 # Examples:
@@ -85,12 +87,12 @@ ESPTOOL     ?= $(lastword $(sort $(wildcard $(ARDUINO_DATA)/packages/esp32/tools
 HOST_CXX    ?= c++
 TEST_DIR    := $(BUILD_DIR)/test
 
-.PHONY: all verify compile upload monitor clean distclean deps install-board install-libs help test tzdb zonedb fs-image uploadfs
+.PHONY: all verify compile upload monitor clean distclean deps install-board install-libs help test tzdb zonedb fs-image uploadfs sim sim-chip sim-compile sim-flash wasi-sdk
 
 all: compile
 
 help:
-	@echo "Targets: deps install-board install-libs verify compile upload uploadfs monitor test tzdb zonedb clean distclean"
+	@echo "Targets: deps install-board install-libs verify compile upload uploadfs monitor test tzdb zonedb sim sim-chip sim-compile sim-flash wasi-sdk clean distclean"
 	@echo "FQBN=$(FQBN)"
 	@echo "PORT=$(PORT)"
 
@@ -266,8 +268,77 @@ uploadfs: fs-image $(ZONE_DB)
 	"$(ESPTOOL)" --chip esp32 --port "$(PORT)" --baud $(UPLOAD_BAUD) \
 		write-flash $$fs_offset "$(FS_IMAGE)" $$zd_offset "$(ZONE_DB)"
 
+# --- Wokwi simulator -----------------------------------------------------
+# Builds what simulator/wokwi.toml points at: the GC9A01 display chip as
+# WebAssembly, and a full flash image that includes the board data.
+
+SIM_DIR     := $(BUILD_DIR)/sim
+# The simulator runs its own firmware build with WATCH_SIMULATOR defined
+# (e.g. a fixed position instead of GPS), so the normal build never has it.
+SIM_BUILD_DIR := $(SIM_DIR)/arduino
+# Fixed position for the simulator: TOKYO, OSAKA, SYDNEY, BRISBANE, NEW_YORK, LONDON or
+# AT_SEA (list in src/location/FakePositioning.cpp). Set it as an environment
+# variable or on the command line: make sim SIM_LOCATION=SYDNEY
+SIM_LOCATION ?= TOKYO
+SIM_FLASH   := $(SIM_DIR)/flash.bin
+SIM_CHIP    := $(SIM_DIR)/gc9a01.chip.wasm
+WOKWI_API_H := $(SIM_DIR)/wokwi-api.h
+# Apple's clang can't build WebAssembly, so the chip is built with wasi-sdk,
+# downloaded into .wasi/ by simulator/setup-wasi-sdk.sh. Set WASM_CC to use
+# another WebAssembly-capable clang instead.
+WASI_SDK_CC := .wasi/wasi-sdk/bin/clang
+WASM_CC     ?= $(WASI_SDK_CC)
+# No libc: the chip only uses the Wokwi API, so no WASI sysroot is needed.
+WASM_CFLAGS := --target=wasm32-wasip1 -O2 -Wall -Wextra -Werror -Wno-unused-function \
+	-ffreestanding -nostdlib -mbulk-memory -Wl,--no-entry -Wl,--export-table
+
+# Wokwi's chip API header is downloaded at build time, not kept in the repo.
+$(WOKWI_API_H):
+	@mkdir -p "$(dir $@)"
+	curl -fsSL -o "$@.tmp" https://wokwi.com/api/chips/wokwi-api.h
+	mv "$@.tmp" "$@"
+
+# Downloads the pinned wasi-sdk if it isn't installed yet; quick otherwise.
+wasi-sdk:
+	simulator/setup-wasi-sdk.sh
+
+# Wokwi expects the chip's JSON next to its .wasm, with the same base name.
+$(SIM_CHIP): simulator/chips/gc9a01.chip.c simulator/chips/gc9a01.chip.json $(WOKWI_API_H) \
+		| $(if $(filter $(WASI_SDK_CC),$(WASM_CC)),wasi-sdk)
+	@if ! "$(WASM_CC)" -print-targets 2>/dev/null | grep -q wasm32; then \
+		echo "$(WASM_CC) can't build WebAssembly. Run 'make wasi-sdk' or set WASM_CC=..."; exit 1; \
+	fi
+	$(WASM_CC) $(WASM_CFLAGS) -I "$(SIM_DIR)" simulator/chips/gc9a01.chip.c -o "$@"
+	cp simulator/chips/gc9a01.chip.json "$(SIM_DIR)/gc9a01.chip.json"
+
+sim-chip: $(SIM_CHIP)
+
+sim-compile:
+	$(ARDUINO_CLI) compile \
+		--build-path "$(SIM_BUILD_DIR)" \
+		--fqbn "$(FQBN)" \
+		--build-property "compiler.cpp.extra_flags=-DWATCH_SIMULATOR -DSIM_LOCATION_$(SIM_LOCATION)" \
+		"$(SKETCH)"
+
+# arduino-cli's flash_args lists the bootloader, partition table and app with
+# their offsets; the data partitions are added at their offsets from the
+# built partition table, as uploadfs writes them.
+sim-flash: sim-compile fs-image $(ZONE_DB)
+	@if [ ! -x "$(ESPTOOL)" ]; then echo "esptool not found (run 'make deps')"; exit 1; fi
+	@mkdir -p "$(SIM_DIR)"
+	@set -e; \
+	set -- $$($(call partition_info,$(FS_LABEL))); fs_offset=$$1; \
+	set -- $$($(call partition_info,$(ZD_LABEL))); zd_offset=$$1; \
+	if [ -z "$$fs_offset" ] || [ -z "$$zd_offset" ]; then echo "Missing '$(FS_LABEL)' or '$(ZD_LABEL)' partition in $(PARTITIONS_CSV)"; exit 1; fi; \
+	cd "$(SIM_BUILD_DIR)" && "$(ESPTOOL)" --chip esp32 merge-bin -o "$(CURDIR)/$(SIM_FLASH)" --pad-to-size 4MB \
+		$$(cat flash_args) \
+		$$zd_offset "$(CURDIR)/$(ZONE_DB)" $$fs_offset "$(CURDIR)/$(FS_IMAGE)"
+
+sim: sim-chip sim-flash
+	@echo "Simulator ready. VS Code: F1 → 'Wokwi: Select Config File' → simulator/wokwi.toml. CLI: wokwi-cli simulator"
+
 clean:
 	rm -rf "$(BUILD_DIR)"
 
 distclean: clean
-	rm -rf "$(CACHE_DIR)"
+	rm -rf "$(CACHE_DIR)" .wasi

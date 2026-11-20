@@ -1,0 +1,16 @@
+# Wokwi simulator config. Build everything with `make sim` first.
+# In VS Code: F1 → "Wokwi: Select Config File" → simulator/wokwi.toml.
+# Paths are relative to this file.
+
+[wokwi]
+version = 1
+# Full 4 MB flash image: bootloader, partition table, app, ZoneDetect map
+# and LittleFS (time zone rules), so the simulated board matches a real one
+# after `make upload uploadfs`.
+firmware = '../build/sim/flash.bin'
+# Simulator build of the firmware (WATCH_SIMULATOR: fixed position, no GPS).
+elf = '../build/sim/arduino/watch_time_updater.ino.elf'
+
+[[chip]]
+name = 'gc9a01'  # used as "chip-gc9a01" in diagram.json
+binary = '../build/sim/gc9a01.chip.wasm'

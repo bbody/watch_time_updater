@@ -1,6 +1,7 @@
 #pragma once
 
 #include "TimeSource.h"
+#include "../location/Positioning.h"
 
 namespace GPS {
     enum class ScreenState {
@@ -9,7 +10,7 @@ namespace GPS {
         Ready
     };
 
-    class Source final : public Time::Source {
+    class Source final : public Time::Source, public Positioning::Source {
     public:
         void begin() override;
         void invalidate() override;
@@ -21,7 +22,7 @@ namespace GPS {
         void onLeaveGpsScreen();
 
         // Last position from an active RMC sentence, while the fix is valid.
-        bool readPosition(double& lat, double& lon) const;
+        bool readPosition(Positioning::Position& position) const override;
 
         ScreenState screenState() const;
         const char* statusLine1() const;
@@ -37,5 +38,4 @@ namespace GPS {
     ScreenState screenState();
     const char* statusLine1();
     const char* statusLine2();
-    bool readPosition(double& lat, double& lon);
 }

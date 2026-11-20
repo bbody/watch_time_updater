@@ -1,0 +1,9 @@
+{
+  "name": "GC9A01",
+  "author": "watch_time_updater",
+  "pins": ["CS", "DC", "RST", "SCL", "SDA", "VCC", "GND"],
+  "display": {
+    "width": 240,
+    "height": 240
+  }
+}

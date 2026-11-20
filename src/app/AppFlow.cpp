@@ -3,6 +3,7 @@
 #include "AppFlow.h"
 #include "ModeManager.h"
 #include "../input/Button.h"
+#include "../location/Positioning.h"
 #include "../net/WiFiConnect.h"
 #include "../storage/Persistence.h"
 #include "../ui/Display.h"
@@ -29,13 +30,14 @@ namespace AppFlow {
                 return;
             }
 
-            double lat = 0.0;
-            double lon = 0.0;
-            if (!GPS::readPosition(lat, lon)) {
+            Positioning::Position position = {};
+            if (!Positioning::active().readPosition(position)) {
                 return;
             }
 
             gpsZoneDetected = true;
+            const double lat = position.latitude;
+            const double lon = position.longitude;
 
             ZoneLookup::Result zone;
             if (ZoneLookup::lookup(static_cast<float>(lat), static_cast<float>(lon), zone)) {

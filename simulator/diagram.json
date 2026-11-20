@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "author": "watch_time_updater",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": { "flashSize": "4" } },
+    { "type": "chip-gc9a01", "id": "lcd", "top": -40, "left": 200, "attrs": { "round": "1" } },
+    { "type": "wokwi-pushbutton", "id": "btn_left", "top": 230, "left": 170, "attrs": { "color": "blue", "label": "Left", "bounce": "0" } },
+    { "type": "wokwi-pushbutton", "id": "btn_enter", "top": 230, "left": 260, "attrs": { "color": "green", "label": "Enter", "bounce": "0" } },
+    { "type": "wokwi-pushbutton", "id": "btn_right", "top": 230, "left": 350, "attrs": { "color": "blue", "label": "Right", "bounce": "0" } }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+
+    [ "lcd:VCC", "esp:3V3", "red", [] ],
+    [ "lcd:GND", "esp:GND.1", "black", [] ],
+    [ "lcd:SCL", "esp:25", "cyan", [] ],
+    [ "lcd:SDA", "esp:26", "limegreen", [] ],
+    [ "lcd:CS", "esp:14", "orange", [] ],
+    [ "lcd:DC", "esp:27", "blue", [] ],
+    [ "lcd:RST", "esp:18", "white", [] ],
+
+    [ "btn_left:1.l", "esp:33", "blue", [] ],
+    [ "btn_left:2.r", "esp:GND.2", "black", [] ],
+    [ "btn_enter:1.l", "esp:32", "green", [] ],
+    [ "btn_enter:2.r", "esp:GND.2", "black", [] ],
+    [ "btn_right:1.l", "esp:21", "blue", [] ],
+    [ "btn_right:2.r", "esp:GND.3", "black", [] ]
+  ],
+  "dependencies": {}
+}

@@ -511,13 +511,13 @@ namespace GPS {
         return true;
     }
 
-    bool Source::readPosition(double& lat, double& lon) const {
+    bool Source::readPosition(Positioning::Position& position) const {
         if (!positionValid || !timeValid) {
             return false;
         }
 
-        lat = latitude;
-        lon = longitude;
+        position.latitude = latitude;
+        position.longitude = longitude;
         return true;
     }
 
@@ -583,10 +583,6 @@ namespace GPS {
 
     void update() {
         instance().update();
-    }
-
-    bool readPosition(double& lat, double& lon) {
-        return instance().readPosition(lat, lon);
     }
 
     ScreenState screenState() {

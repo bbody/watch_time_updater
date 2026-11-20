@@ -5,6 +5,20 @@
 
 Sets radio-controlled watches by transmitting a local JJY time signal, using time from GPS or NTP.
 
+## Simulator
+
+[simulator/](simulator/) runs the firmware in the [Wokwi](https://wokwi.com) simulator: an ESP32 wired as in [PINOUT.md](PINOUT.md), the three buttons, and a GC9A01 round display written as a Wokwi custom chip ([simulator/chips/](simulator/chips/)). GPS and the JJY radio output aren't simulated.
+
+```sh
+make sim   # display chip (WebAssembly) + full 4 MB flash image
+```
+
+Wokwi has no GPS, so the simulator firmware reports a fixed position instead. Pick it with `SIM_LOCATION`: `TOKYO` (default), `OSAKA`, `SYDNEY`, `BRISBANE`, `NEW_YORK`, `LONDON` or `AT_SEA`, e.g. `make sim SIM_LOCATION=SYDNEY`.
+
+The first run downloads [wasi-sdk](https://github.com/WebAssembly/wasi-sdk) (~180 MB) into `.wasi/` to build the display chip, because Apple's clang can't build WebAssembly.
+
+Then in VS Code, with the Wokwi extension: F1 → **Wokwi: Select Config File** → `simulator/wokwi.toml`, and start the simulator. With the Wokwi CLI: `wokwi-cli simulator`.
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).

@@ -6,3 +6,6 @@ build/
 
 # Cached downloads for data builds (`make distclean` removes them)
 .cache/
+
+# WebAssembly toolchain for the simulator (`make wasi-sdk`)
+.wasi/
